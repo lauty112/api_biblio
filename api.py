@@ -4,6 +4,8 @@ from flask_cors import CORS
 from conexion import obtener_conexion, desconectar
 from psycopg2.extras import RealDictCursor
 
+import conexion
+
 
 app = Flask(__name__)
 # Habilitar CORS para todas las rutas (configurable mediante env si se desea)
@@ -130,8 +132,29 @@ def obtener_autores():
         desconectar(conexion)
 
     return jsonify(autores)
+@app.route('/api/libros/<int:libro_id>', methods=['GET'])
+def obtener_libro(libro_id):
+        """Devuelve un libro específico desde la tabla `titulos`.
 
+        Responde con JSON y código HTTP adecuado si hay error de conexión.
+        """
+        conexion = obtener_conexion()
+        if conexion is None:
+            return jsonify({"error": "no se puede conectar a la base de datos"}), 500
 
+        try:
+            # Usar context manager para asegurar cierre de cursor
+            with conexion.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT * FROM titulos WHERE isbn = %s", (libro_id,))
+                libros = cursor.fetchall()
+        except Exception as e:
+            # Registrar el error en el servidor y devolver 500 al cliente
+            print("Error consultando libros:", e)
+            return jsonify({"error": "error al obtener los libros"}), 500
+        finally:
+            desconectar(conexion)
+
+        return jsonify(libros)        
 if __name__ == '__main__':
     # Configuración del puerto y debug vía variables de entorno
     port = int(os.environ.get('PORT', 5000))

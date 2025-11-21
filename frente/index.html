@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Biblioteca - Libros</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 960px; margin: 24px auto; padding: 0 16px; }
+        h1 { margin-bottom: 8px; }
+        #controls { margin-bottom: 12px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f4f4f4; }
+        .muted { color: #666; }
+        #error { color: #a00; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Biblioteca</h1>
+
+    <div id="controls">
+        <label class="muted">API:</label>
+        <input id="apiUrl" type="text" value="http://localhost:5000/api/libros" style="width:60%" />
+        <button id="refresh">Cargar libros</button>
+    </div>
+
+    <div id="status" class="muted">Presiona "Cargar libros" para obtener la lista.</div>
+    <div id="error"></div>
+    <div id="list"></div>
+
+    <script>
+        const apiInput = document.getElementById('apiUrl');
+        const refreshBtn = document.getElementById('refresh');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        const listDiv = document.getElementById('list');
+
+        async function loadBooks() {
+            const url = apiInput.value.trim();
+            if (!url) return;
+
+            statusDiv.textContent = 'Cargando...';
+            errorDiv.textContent = '';
+            listDiv.innerHTML = '';
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${text}`);
+                }
+
+                const data = await res.json();
+
+                if (!Array.isArray(data)) {
+                    // Si la API devuelve un objeto individual, convertir a arreglo
+                    if (data === null) {
+                        listDiv.innerHTML = '<div class="muted">No hay datos.</div>';
+                        statusDiv.textContent = 'Listo';
+                        return;
+                    }
+                    // si es objeto, envolver
+                    data = [data];
+                }
+
+                if (data.length === 0) {
+                    listDiv.innerHTML = '<div class="muted">No hay libros registrados.</div>';
+                    statusDiv.textContent = 'Listo';
+                    return;
+                }
+
+                // Determinar columnas (unión de todas las keys)
+                const cols = new Set();
+                data.forEach(item => Object.keys(item || {}).forEach(k => cols.add(k)));
+                const columns = Array.from(cols);
+
+                // Construir tabla
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const trHead = document.createElement('tr');
+                columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trHead.appendChild(th); });
+                thead.appendChild(trHead);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    columns.forEach(c => {
+                        const td = document.createElement('td');
+                        const val = row && row[c] !== undefined && row[c] !== null ? row[c] : '';
+                        td.textContent = val;
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+
+                listDiv.appendChild(table);
+                statusDiv.textContent = `Cargados ${data.length} libros.`;
+
+            } catch (err) {
+                console.error(err);
+                errorDiv.textContent = 'Error cargando libros: ' + (err.message || err);
+                statusDiv.textContent = 'Error';
+            }
+        }
+
+        refreshBtn.addEventListener('click', loadBooks);
+
+        // Cargar al abrir la página (opcional)
+        // loadBooks();
+    </script>
+</body>
+</html>
